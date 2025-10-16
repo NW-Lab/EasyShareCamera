@@ -167,6 +167,9 @@ class CameraManager: NSObject, ObservableObject {
                     device.whiteBalanceMode = self.settings.whiteBalanceMode
                 }
                 
+                // フレームレート設定（スローモーション対応）
+                self.configureFrameRate(for: device)
+                
                 // ===== ズーム設定（UI倍率→デバイス倍率 マッピング対応） =====
                 let minZoom = device.minAvailableVideoZoomFactor
                 let maxZoom = device.maxAvailableVideoZoomFactor
@@ -231,12 +234,21 @@ class CameraManager: NSObject, ObservableObject {
                 try device.lockForConfiguration()
                 
                 let minZoom = device.minAvailableVideoZoomFactor
-                let maxZoom = min(device.maxAvailableVideoZoomFactor, 10.0) // 実用上の上限
+                let maxZoom = min(device.maxAvailableVideoZoomFactor, 20.0) // 上限を少し上げる
                 
                 let requestedDeviceZoom = self.toDeviceZoom(from: uiFactor, device: device)
-                print("🎥 [CameraManager] Zoom request (UI): \(uiFactor)x -> device: \(requestedDeviceZoom)x, device range: \(minZoom) ~ \(device.maxAvailableVideoZoomFactor)")
+                print("🎥 [CameraManager] Zoom request (UI): \(uiFactor)x -> device: \(requestedDeviceZoom)x, device range: \(minZoom) ~ \(maxZoom)")
                 
-                let safeDeviceZoom = max(minZoom, min(maxZoom, requestedDeviceZoom))
+                // デバイス種別による制限調整
+                let actualMaxZoom: CGFloat
+                if device.deviceType == .builtInUltraWideCamera {
+                    // 超広角の場合、UI 0.5x〜3x程度 = device 1x〜6x程度まで許可
+                    actualMaxZoom = min(maxZoom, 6.0)
+                } else {
+                    actualMaxZoom = maxZoom
+                }
+                
+                let safeDeviceZoom = max(minZoom, min(actualMaxZoom, requestedDeviceZoom))
                 device.videoZoomFactor = safeDeviceZoom
                 
                 let appliedUIZoom = self.toUIZoom(fromDeviceZoom: safeDeviceZoom, device: device)
@@ -493,6 +505,100 @@ private extension CameraManager {
             return max(0.5, deviceZoom / 2.0)
         }
         return deviceZoom
+    }
+    
+    // フレームレート設定（スローモーション対応）
+    private func configureFrameRate(for device: AVCaptureDevice) {
+        // 現在の機種の対応状況をログ出力
+        let maxFrameRate = getMaxFrameRate(for: device)
+        print("🎥 [CameraManager] Device: \(device.localizedName)")
+        print("🎥 [CameraManager] Max supported frame rate: \(maxFrameRate)fps")
+        
+        // スローモーションモードでない場合は通常のフレームレート
+        guard settings.captureMode == .slowMotion else {
+            // 通常モードでは30fpsまたは60fps（デバイスが対応していれば）
+            let normalFrameRate = maxFrameRate >= 60 ? 60.0 : 30.0
+            print("🎥 [CameraManager] Setting normal mode frame rate: \(normalFrameRate)fps")
+            setFrameRate(for: device, fps: normalFrameRate)
+            return
+        }
+        
+        // スローモーション用に最高フレームレートを設定
+        print("🎥 [CameraManager] Setting slow motion frame rate: \(maxFrameRate)fps")
+        setFrameRate(for: device, fps: maxFrameRate)
+    }
+    
+    // デバイスの最高フレームレートを取得
+    private func getMaxFrameRate(for device: AVCaptureDevice) -> Double {
+        var maxFrameRate: Double = 30.0
+        
+        for format in device.formats {
+            for range in format.videoSupportedFrameRateRanges {
+                if range.maxFrameRate > maxFrameRate {
+                    maxFrameRate = range.maxFrameRate
+                }
+            }
+        }
+        
+        print("🎥 [CameraManager] Max supported frame rate: \(maxFrameRate)fps")
+        return maxFrameRate
+    }
+    
+    // 指定フレームレートを設定
+    private func setFrameRate(for device: AVCaptureDevice, fps: Double) {
+        guard let format = findFormat(for: device, withFrameRate: fps) else {
+            print("🎥 [CameraManager] ❌ No format found for \(fps)fps, trying fallback")
+            // フォールバック: より低いフレームレートを試す
+            if fps > 60 {
+                setFrameRate(for: device, fps: 60)
+            } else if fps > 30 {
+                setFrameRate(for: device, fps: 30)
+            }
+            return
+        }
+        
+        do {
+            device.activeFormat = format
+            let frameDuration = CMTime(value: 1, timescale: CMTimeScale(fps))
+            device.activeVideoMinFrameDuration = frameDuration
+            device.activeVideoMaxFrameDuration = frameDuration
+            
+            // 設定されたフォーマットの詳細をログ出力
+            let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+            print("🎥 [CameraManager] ✅ Frame rate set to \(fps)fps")
+            print("🎥 [CameraManager] ✅ Video format: \(dimensions.width)x\(dimensions.height)")
+            
+        } catch {
+            print("🎥 [CameraManager] ❌ Failed to set frame rate: \(error)")
+        }
+    }
+    
+    // 指定フレームレートをサポートするフォーマットを検索
+    private func findFormat(for device: AVCaptureDevice, withFrameRate fps: Double) -> AVCaptureDevice.Format? {
+        var bestFormat: AVCaptureDevice.Format?
+        var bestResolution = 0
+        
+        for format in device.formats {
+            let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+            let resolution = Int(dimensions.width * dimensions.height)
+            
+            for range in format.videoSupportedFrameRateRanges {
+                if range.minFrameRate <= fps && fps <= range.maxFrameRate {
+                    // より高解像度のフォーマットを優先
+                    if bestFormat == nil || resolution > bestResolution {
+                        bestFormat = format
+                        bestResolution = resolution
+                    }
+                }
+            }
+        }
+        
+        if let format = bestFormat {
+            let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+            print("🎥 [CameraManager] Found best format for \(fps)fps: \(dimensions.width)x\(dimensions.height)")
+        }
+        
+        return bestFormat
     }
 }
 

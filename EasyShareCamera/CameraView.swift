@@ -36,6 +36,10 @@ struct CameraView: View {
                 permissionView
             }
         }
+        .safeAreaInset(edge: .top) {
+            // 上部に透明なスペーサーを配置
+            Color.clear.frame(height: 0)
+        }
         .onAppear {
             print("📱 [CameraView] onAppear - hasPermission: \(cameraManager.hasPermission)")
             lastZoomFactor = cameraSettings.zoomFactor
@@ -94,21 +98,41 @@ struct CameraView: View {
         .sheet(isPresented: $showingLocalSettings) {
             LocalSettingsView(settings: cameraSettings, cameraManager: cameraManager)
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+            // デバイス回転時にプレビューを更新
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                // 少し遅延を入れてからプレビューを更新
+                print("📱 [CameraView] Device orientation changed, updating preview")
+            }
+        }
+        .ignoresSafeArea(.all)
+        .preferredColorScheme(.dark)
     }
     
     // MARK: - Camera Preview Content
     private var cameraPreviewContent: some View {
         CameraPreviewView(session: cameraManager.captureSession)
             .ignoresSafeArea()
+            .clipped()
+            .allowsHitTesting(true)
             .gesture(
                 MagnificationGesture()
                     .onChanged { value in
                         guard let device = cameraManager.captureDevice else { return }
-                        let sensitivity: CGFloat = 0.2
-                        let logScale = log2(value) * sensitivity
-                        let newZoom = lastZoomFactor * pow(2.0, logScale)
-                        let maxPracticalZoom = min(device.maxAvailableVideoZoomFactor, 10.0)
-                        let clampedZoom = min(max(newZoom, device.minAvailableVideoZoomFactor), maxPracticalZoom)
+                        
+                        // ピンチズームの感度を調整（より丁寧に）
+                        let sensitivity: CGFloat = 0.075  // 感度をさらに下げる（0.3の1/4）
+                        let dampedValue = 1.0 + (value - 1.0) * sensitivity
+                        
+                        // より丁寧なズーム計算
+                        let newZoom = lastZoomFactor * dampedValue
+                        
+                        // デバイス種別を考慮した範囲制限
+                        let minUIZoom: CGFloat = device.deviceType == .builtInUltraWideCamera ? 0.5 : 1.0
+                        let maxUIZoom: CGFloat = 10.0
+                        let clampedZoom = min(max(newZoom, minUIZoom), maxUIZoom)
+                        
+                        // 超広角カメラの場合、UI倍率をデバイス倍率に変換して適用
                         cameraManager.zoom(by: clampedZoom)
                     }
                     .onEnded { _ in
@@ -133,140 +157,143 @@ struct CameraView: View {
             // 上部コントロール
             topControls
                 .padding(.horizontal)
-                .padding(.top, 10)
+                .padding(.top, 10) // 上部余白を減らす（topControls内でスペーサー追加したため）
             
             Spacer()
             
             // 下部コントロール
             bottomControls
                 .padding(.horizontal)
-                .padding(.bottom, 50)
+                .padding(.bottom, 40) // 下部も余白を増やす
         }
     }
     
     // MARK: - Top Controls
     private var topControls: some View {
-        HStack {
-            // マスター設定ボタン
-            Button(action: { showingMasterSettings = true }) {
-                VStack(spacing: 2) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.title3)
-                    Text("Master")
-                        .font(.caption2)
-                }
-                .foregroundColor(.white)
-                .padding(8)
-                .background(Color.black.opacity(0.3))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
+        VStack(spacing: 0) {
+            // ステータスバー分のスペーサー
+            Spacer().frame(height: 20)
             
-            Spacer()
-            
-            // 中央エリア: マスター表示とモード表示
-            VStack(spacing: 4) {
-                Text("MASTER")
-                    .foregroundColor(.yellow)
-                    .font(.caption)
-                    .bold()
-                
-                HStack(spacing: 8) {
-                    Text(cameraSettings.captureMode.displayName)
-                        .foregroundColor(.white)
-                        .font(.headline)
-                    
-                    // 録画時間表示（録画中のみ）
-                    if cameraManager.isRecording {
-                        Text(formatDuration(recordingDuration))
-                            .foregroundColor(.red)
-                            .font(.headline)
-                            .monospacedDigit()
+            HStack {
+                // マスター設定ボタン
+                Button(action: { showingMasterSettings = true }) {
+                    VStack(spacing: 2) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.title3)
+                        Text("Master")
+                            .font(.caption2)
                     }
+                    .foregroundColor(.white)
+                    .padding(8)
+                    .background(Color.black.opacity(0.3))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color.black.opacity(0.3))
-                .clipShape(Capsule())
-            }
-            
-            Spacer()
-            
-            // ローカル設定ボタン
-            Button(action: { showingLocalSettings = true }) {
-                VStack(spacing: 2) {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.title3)
-                    Text("Local")
-                        .font(.caption2)
+                
+                Spacer()
+                
+                // 中央エリア: マスター表示とモード表示
+                VStack(spacing: 4) {
+                    Text("MASTER")
+                        .foregroundColor(.yellow)
+                        .font(.caption)
+                        .bold()
+                    
+                    HStack(spacing: 8) {
+                        Text(cameraSettings.captureMode.displayName)
+                            .foregroundColor(.white)
+                            .font(.headline)
+                        
+                        // 録画時間表示（録画中のみ）
+                        if cameraManager.isRecording {
+                            Text(formatDuration(recordingDuration))
+                                .foregroundColor(.red)
+                                .font(.headline)
+                                .monospacedDigit()
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.black.opacity(0.3))
+                    .clipShape(Capsule())
                 }
-                .foregroundColor(.white)
-                .padding(8)
-                .background(Color.black.opacity(0.3))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                
+                Spacer()
+                
+                // ローカル設定ボタン
+                Button(action: { showingLocalSettings = true }) {
+                    VStack(spacing: 2) {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.title3)
+                        Text("Local")
+                            .font(.caption2)
+                    }
+                    .foregroundColor(.white)
+                    .padding(8)
+                    .background(Color.black.opacity(0.3))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
             }
         }
     }
     
     // MARK: - Bottom Controls
     private var bottomControls: some View {
-        VStack(spacing: 16) {
-            // ズーム倍率表示とボタン
-            VStack(spacing: 12) {
-                // 現在のズーム倍率表示
+        VStack(spacing: 8) {
+            // ズーム倍率表示とボタン（コンパクト化）
+            HStack(spacing: 8) {
+                // 現在のズーム倍率表示（半透明白背景・黒文字で区別）
                 Text(String(format: "%.1fx", cameraSettings.zoomFactor))
-                    .foregroundColor(.white)
-                    .font(.title3)
+                    .foregroundColor(.black)
+                    .font(.caption)
                     .bold()
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
-                    .background(Color.black.opacity(0.5))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.white.opacity(0.5))
                     .clipShape(Capsule())
                 
-                // キリの良い倍率ボタン
-                HStack(spacing: 12) {
-                    ForEach(availableZoomFactors, id: \.self) { factor in
-                        Button(action: {
-                            cameraManager.zoom(by: factor)
-                        }) {
-                            Text(formatZoomFactor(factor))
-                                .foregroundColor(.white)
-                                .font(.callout)
-                                .bold()
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.black.opacity(0.5))
-                                .clipShape(Capsule())
-                                .overlay(
-                                    Capsule()
-                                        .stroke(Color.white, lineWidth: abs(cameraSettings.zoomFactor - factor) < 0.1 ? 2 : 0)
-                                )
-                        }
-                        .buttonStyle(.plain)
+                // キリの良い倍率ボタン（コンパクト化）
+                ForEach(availableZoomFactors, id: \.self) { factor in
+                    Button(action: {
+                        cameraManager.zoom(by: factor)
+                    }) {
+                        Text(formatZoomFactor(factor))
+                            .foregroundColor(.white)
+                            .font(.caption)
+                            .bold()
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.black.opacity(0.6))
+                            .clipShape(Capsule())
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color.white, lineWidth: abs(cameraSettings.zoomFactor - factor) < 0.1 ? 1.5 : 0)
+                            )
                     }
+                    .buttonStyle(.plain)
                 }
             }
             
-            // シャッターボタン
+            // シャッターボタン（サイズを少し小さく）
             HStack(spacing: 0) {
                 // 左側のスペーサー
                 Spacer()
                 
-                // メインシャッターボタン（中央）
+                // メインシャッターボタン（中央・小さめ）
                 Button(action: mainCaptureAction) {
                     ZStack {
                         Circle()
                             .fill(Color.white)
-                            .frame(width: 80, height: 80)
+                            .frame(width: 70, height: 70)
                         
                         if cameraManager.isRecording {
                             Rectangle()
                                 .fill(Color.red)
-                                .frame(width: 30, height: 30)
-                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                                .frame(width: 24, height: 24)
+                                .clipShape(RoundedRectangle(cornerRadius: 3))
                         } else {
                             Circle()
                                 .fill(captureButtonColor)
-                                .frame(width: 70, height: 70)
+                                .frame(width: 60, height: 60)
                         }
                     }
                 }
@@ -355,52 +382,77 @@ struct CameraView: View {
     }
 }
 
-// MARK: - Camera Preview View
 struct CameraPreviewView: UIViewRepresentable {
     let session: AVCaptureSession
     
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView(frame: CGRect.zero)
-        view.backgroundColor = .black
+    func makeUIView(context: Context) -> CameraPreviewUIView {
+        let view = CameraPreviewUIView(session: session)
+        return view
+    }
+    
+    func updateUIView(_ uiView: CameraPreviewUIView, context: Context) {
+        uiView.updateLayout()
+    }
+}
 
+// カスタムUIViewクラス
+class CameraPreviewUIView: UIView {
+    private let session: AVCaptureSession
+    private var previewLayer: AVCaptureVideoPreviewLayer?
+    
+    init(session: AVCaptureSession) {
+        self.session = session
+        super.init(frame: .zero)
+        setupPreviewLayer()
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    private func setupPreviewLayer() {
+        backgroundColor = .black
+        
 #if targetEnvironment(simulator)
-        // Simulator: カメラプレビューは利用できないためプレースホルダを表示
-        print("📱 [CameraPreviewView] Running on SIMULATOR - showing placeholder")
+        // Simulator: プレースホルダを表示
         let placeholder = UIImageView(image: UIImage(systemName: "camera.fill"))
         placeholder.contentMode = .center
         placeholder.tintColor = .gray
         placeholder.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(placeholder)
+        addSubview(placeholder)
         NSLayoutConstraint.activate([
-            placeholder.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            placeholder.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            placeholder.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.5),
-            placeholder.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.5)
+            placeholder.centerXAnchor.constraint(equalTo: centerXAnchor),
+            placeholder.centerYAnchor.constraint(equalTo: centerYAnchor),
+            placeholder.widthAnchor.constraint(equalTo: widthAnchor, multiplier: 0.5),
+            placeholder.heightAnchor.constraint(equalTo: heightAnchor, multiplier: 0.5)
         ])
-        return view
 #else
         // Real device: カメラプレビューレイヤーを作成
-        print("📱 [CameraPreviewView] Running on REAL DEVICE - setting up preview layer")
-        print("📱 [CameraPreviewView] Session is running: \(session.isRunning)")
         let previewLayer = AVCaptureVideoPreviewLayer(session: session)
-        previewLayer.frame = view.bounds
         previewLayer.videoGravity = .resizeAspectFill
-        view.layer.addSublayer(previewLayer)
-        print("📱 [CameraPreviewView] ✅ Preview layer added to view")
-        return view
+        
+        layer.addSublayer(previewLayer)
+        self.previewLayer = previewLayer
+        
+        print("📱 [CameraPreviewUIView] Preview layer setup completed without orientation settings")
 #endif
     }
     
-    func updateUIView(_ uiView: UIView, context: Context) {
-        if let previewLayer = uiView.layer.sublayers?.first as? AVCaptureVideoPreviewLayer {
-            DispatchQueue.main.async {
-                previewLayer.frame = uiView.bounds
-                print("📱 [CameraPreviewView] updateUIView - frame updated to: \(uiView.bounds)")
-            }
-            // iOS 17 での deprecated API を避けるため、ここではプレビューの向き設定は行わない。
-            // デバイス上では AVFoundation が適切にプレビューの向きを処理することを期待する。
-            previewLayer.needsDisplayOnBoundsChange = true
-        }
+    func updateLayout() {
+        guard let previewLayer = previewLayer else { return }
+        
+        CATransaction.begin()
+        CATransaction.setDisableActions(true) // アニメーションを無効化
+        previewLayer.frame = bounds
+        previewLayer.setAffineTransform(.identity)
+        CATransaction.commit()
+        
+        print("📱 [CameraPreviewUIView] Layout updated without orientation changes")
+    }
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        updateLayout()
     }
 }
 
