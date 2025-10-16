@@ -10,9 +10,22 @@
 		22FB1AA72E9CB41700194971 /* EasyShareCamera.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyShareCamera.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		222DD9932EA1282A00BC7184 /* Exceptions for "EasyShareCamera" folder in "EasyShareCamera" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 22FB1AA62E9CB41700194971 /* EasyShareCamera */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		22FB1AA92E9CB41700194971 /* EasyShareCamera */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				222DD9932EA1282A00BC7184 /* Exceptions for "EasyShareCamera" folder in "EasyShareCamera" target */,
+			);
 			path = EasyShareCamera;
 			sourceTree = "<group>";
 		};
@@ -256,6 +269,7 @@
 				DEVELOPMENT_TEAM = VWXW74ETWH;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = EasyShareCamera/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSCameraUsageDescription = "このアプリはカメラを使用します。";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "このアプリはマイクを使用します。";
@@ -298,6 +312,7 @@
 				DEVELOPMENT_TEAM = VWXW74ETWH;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = EasyShareCamera/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSCameraUsageDescription = "このアプリはカメラを使用します。";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "このアプリはマイクを使用します。";

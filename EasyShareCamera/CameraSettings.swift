@@ -111,20 +111,23 @@ class CameraSettings: ObservableObject {
     
     /// 現在の設定をデバイスの制限内で調整
     func validateAndAdjustSettings(for device: AVCaptureDevice) {
-        // ISO値の調整
-        let minISO = device.activeFormat.minISO
-        let maxISO = device.activeFormat.maxISO
-        isoValue = max(minISO, min(maxISO, isoValue))
-        
-        // 露出時間の調整
-        let minDuration = CMTimeGetSeconds(device.activeFormat.minExposureDuration)
-        let maxDuration = CMTimeGetSeconds(device.activeFormat.maxExposureDuration)
-        exposureDuration = max(minDuration, min(maxDuration, exposureDuration))
-        
-        // ズーム倍率の調整
-        zoomFactor = max(device.minAvailableVideoZoomFactor, min(device.maxAvailableVideoZoomFactor, zoomFactor))
-        
-        saveSettings()
+        // メインスレッドで@Publishedプロパティを更新
+        DispatchQueue.main.async {
+            // ISO値の調整
+            let minISO = device.activeFormat.minISO
+            let maxISO = device.activeFormat.maxISO
+            self.isoValue = max(minISO, min(maxISO, self.isoValue))
+            
+            // 露出時間の調整
+            let minDuration = CMTimeGetSeconds(device.activeFormat.minExposureDuration)
+            let maxDuration = CMTimeGetSeconds(device.activeFormat.maxExposureDuration)
+            self.exposureDuration = max(minDuration, min(maxDuration, self.exposureDuration))
+            
+            // ズーム倍率の調整
+            self.zoomFactor = max(device.minAvailableVideoZoomFactor, min(device.maxAvailableVideoZoomFactor, self.zoomFactor))
+            
+            self.saveSettings()
+        }
     }
     
     /// 設定が変更されたときに自動保存するためのメソッド

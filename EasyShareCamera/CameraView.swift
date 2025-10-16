@@ -30,43 +30,8 @@ struct CameraView: View {
             Color.black.ignoresSafeArea()
             
             if cameraManager.hasPermission {
-                CameraPreviewView(session: cameraManager.captureSession)
-                    .ignoresSafeArea()
-                    .gesture(
-                        MagnificationGesture()
-                            .onChanged { value in
-                                guard let device = cameraManager.captureDevice else { return }
-                                // 段階的拡大: 1→2→4→8倍のような感じに
-                                let sensitivity: CGFloat = 0.2  // より感度を下げる
-                                let logScale = log2(value) * sensitivity  // 対数スケールで段階的に
-                                let newZoom = lastZoomFactor * pow(2.0, logScale)
-                                let maxPracticalZoom = min(device.maxAvailableVideoZoomFactor, 10.0)
-                                let clampedZoom = min(max(newZoom, device.minAvailableVideoZoomFactor), maxPracticalZoom)
-                                cameraManager.zoom(by: clampedZoom)
-                            }
-                            .onEnded { _ in
-                                lastZoomFactor = cameraSettings.zoomFactor
-                            }
-                    )
-                    .onTapGesture { location in
-                        let point = CGPoint(x: location.x / UIScreen.main.bounds.width,
-                                          y: location.y / UIScreen.main.bounds.height)
-                        cameraManager.setFocusPoint(point)
-                    }
-                
-                VStack {
-                    // 上部コントロール
-                    topControls
-                        .padding(.horizontal)
-                        .padding(.top, 10)
-                    
-                    Spacer()
-                    
-                    // 下部コントロール
-                    bottomControls
-                        .padding(.horizontal)
-                        .padding(.bottom, 50)
-                }
+                cameraPreviewContent
+                mainContent
             } else {
                 permissionView
             }
@@ -128,6 +93,54 @@ struct CameraView: View {
         }
         .sheet(isPresented: $showingLocalSettings) {
             LocalSettingsView(settings: cameraSettings, cameraManager: cameraManager)
+        }
+    }
+    
+    // MARK: - Camera Preview Content
+    private var cameraPreviewContent: some View {
+        CameraPreviewView(session: cameraManager.captureSession)
+            .ignoresSafeArea()
+            .gesture(
+                MagnificationGesture()
+                    .onChanged { value in
+                        guard let device = cameraManager.captureDevice else { return }
+                        let sensitivity: CGFloat = 0.2
+                        let logScale = log2(value) * sensitivity
+                        let newZoom = lastZoomFactor * pow(2.0, logScale)
+                        let maxPracticalZoom = min(device.maxAvailableVideoZoomFactor, 10.0)
+                        let clampedZoom = min(max(newZoom, device.minAvailableVideoZoomFactor), maxPracticalZoom)
+                        cameraManager.zoom(by: clampedZoom)
+                    }
+                    .onEnded { _ in
+                        lastZoomFactor = cameraSettings.zoomFactor
+                    }
+            )
+            .simultaneousGesture(
+                SpatialTapGesture().onEnded { value in
+                    let size = UIScreen.main.bounds.size
+                    let point = CGPoint(
+                        x: value.location.x / size.width,
+                        y: value.location.y / size.height
+                    )
+                    cameraManager.setFocusPoint(point)
+                }
+            )
+    }
+    
+    // MARK: - Main Content
+    private var mainContent: some View {
+        VStack {
+            // 上部コントロール
+            topControls
+                .padding(.horizontal)
+                .padding(.top, 10)
+            
+            Spacer()
+            
+            // 下部コントロール
+            bottomControls
+                .padding(.horizontal)
+                .padding(.bottom, 50)
         }
     }
     
