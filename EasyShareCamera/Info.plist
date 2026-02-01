@@ -4,5 +4,18 @@
 <dict>
 	<key>NSCameraReactionEffectGesturesEnabledDefault</key>
 	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>ミルククラウンを240fpsで撮影するためにカメラへのアクセスが必要です。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>撮影した動画を写真ライブラリに保存するためにアクセスが必要です。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>撮影した動画を写真ライブラリに保存するためにアクセスが必要です。</string>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIImageName</key>
+		<string></string>
+		<key>UIColorName</key>
+		<string></string>
+	</dict>
 </dict>
 </plist>

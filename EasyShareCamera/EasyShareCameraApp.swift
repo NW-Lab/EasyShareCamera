@@ -11,7 +11,7 @@ import SwiftUI
 struct EasyShareCameraApp: App {
     var body: some Scene {
         WindowGroup {
-            CameraView()
+            ContentView()
         }
     }
 }
