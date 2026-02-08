@@ -3,16 +3,16 @@
 ## プロジェクト構成
 
 ```
-EasyShareCamera/
-├── EasyShareCamera/
-│   ├── EasyShareCameraApp.swift      # アプリエントリーポイント
+EasyMeasurementCamera/
+├── EasyMeasurementCamera/
+│   ├── EasyMeasurementCameraApp.swift      # アプリエントリーポイント
 │   ├── ContentView.swift             # メインUI
 │   ├── CameraManager.swift           # カメラ制御とトリガー管理
 │   ├── RedLightDetector.swift        # 赤色LED検知エンジン
 │   ├── MilkCrownCaptureController.swift  # 撮影制御ロジック（予備）
 │   ├── Info.plist                    # アプリ設定と権限
 │   └── Assets.xcassets/              # アセット
-├── EasyShareCamera.xcodeproj/        # Xcodeプロジェクト
+├── EasyMeasurementCamera.xcodeproj/        # Xcodeプロジェクト
 └── README.md                         # ドキュメント
 ```
 
@@ -74,7 +74,7 @@ EasyShareCamera/
 
 1. Xcodeでプロジェクトを開く
    ```bash
-   open EasyShareCamera.xcodeproj
+   open EasyMeasurementCamera.xcodeproj
    ```
 
 2. 開発チームを設定

@@ -1,10 +1,10 @@
-# EasyShareCamera
+# EasyMeasurementCamera
 
 ミルククラウン撮影用の240fpsスローモーションカメラアプリ + Arduinoトリガーシステム
 
 ## 概要
 
-EasyShareCameraは、水滴が液面に落下して形成される「ミルククラウン」を、赤色LEDトリガーを使って自動的に240fpsのスローモーションで撮影するシステムです。
+EasyMeasurementCameraは、水滴が液面に落下して形成される「ミルククラウン」を、赤色LEDトリガーを使って自動的に240fpsのスローモーションで撮影するシステムです。
 
 **システム構成:**
 - **iPhoneアプリ**: 赤色LED検知で自動録画（240fps）
@@ -200,8 +200,8 @@ t ≈ 0.247秒（247ms）
 ## プロジェクト構成
 
 ```
-EasyShareCamera/
-├── EasyShareCamera/          # iPhoneアプリ
+EasyMeasurementCamera/
+├── EasyMeasurementCamera/          # iPhoneアプリ
 │   ├── CameraManager.swift
 │   ├── RedLightDetector.swift
 │   ├── ContentView.swift
@@ -260,7 +260,7 @@ EasyShareCamera/
 
 ## 作者
 
-EasyShareCamera開発チーム
+EasyMeasurementCamera開発チーム
 
 ## 謝辞
 

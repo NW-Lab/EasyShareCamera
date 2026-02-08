@@ -364,4 +364,4 @@ MIT License
 
 ## 作者
 
-EasyShareCamera開発チーム
+EasyMeasurementCamera開発チーム
