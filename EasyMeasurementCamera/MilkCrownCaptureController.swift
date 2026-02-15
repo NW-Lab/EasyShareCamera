@@ -10,7 +10,7 @@ import AVFoundation
 import Combine
 
 /// 撮影状態
-enum CaptureState {
+enum CaptureState: Equatable {
     case idle              // 待機中
     case armed             // 準備完了（検知待ち）
     case triggered         // トリガー検知
@@ -76,7 +76,10 @@ class MilkCrownCaptureController: ObservableObject {
     
     /// 撮影を準備（Armed状態に移行）
     func arm() {
-        guard state == .idle || state == .completed || state == .error("") else {
+        switch state {
+        case .idle, .completed, .error:
+            break
+        default:
             print("⚠️ [MilkCrownController] Cannot arm from current state: \(state)")
             return
         }
@@ -187,7 +190,7 @@ class MilkCrownCaptureController: ObservableObject {
         redLightDetector.redSelectivity = 0.3
         redLightDetector.minimumBrightness = 0.4
         
-        redLightDetector.onRedLightDetected = { [weak self] result in
+        redLightDetector.onRedLightDetected = { _ in
             // このコールバックは processSampleBuffer 内で既に処理されている
         }
     }
